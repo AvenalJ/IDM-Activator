@@ -1,0 +1,13 @@
+# Logs & Backups
+*.log
+*.log.bak
+*.json
+
+# Temp Files
+*.tmp
+*.reg
+scratch/
+
+# Windows OS Files
+Thumbs.db
+Desktop.ini
