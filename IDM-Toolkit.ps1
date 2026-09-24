@@ -516,7 +516,11 @@ function Import-IDMBackup {
                     $valMeta = $prop.Value
                     $kind    = if ($valMeta.Kind) { $valMeta.Kind } else { 'String' }
                     $val     = $valMeta.Value
-                    Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kind -Force -EA SilentlyContinue
+                    if ([string]::IsNullOrEmpty($valName)) {
+                        Set-ItemProperty -Path $Path -Name '(default)' -Value $val -Type $kind -Force -EA SilentlyContinue
+                    } else {
+                        Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kind -Force -EA SilentlyContinue
+                    }
                 }
             }
             if ($node.SubKeys) {
