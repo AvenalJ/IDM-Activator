@@ -545,15 +545,15 @@ function Run-ToolkitMode([string]$ModeName) {
         $proc = [System.Diagnostics.Process]::Start($psi)
 
         while (-not $proc.HasExited) {
-            $line = $proc.StandardOutput.ReadLine()
-            if ($line) {
-                $clean = $line -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-                if ($clean.Trim()) {
-                    Write-GuiLog $clean 'OUT'
+            while (-not $proc.StandardOutput.EndOfStream) {
+                $line = $proc.StandardOutput.ReadLine()
+                if ($line) {
+                    $clean = $line -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+                    if ($clean.Trim()) { Write-GuiLog $clean 'OUT' }
                 }
             }
             [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-            Start-Sleep -Milliseconds 30
+            Start-Sleep -Milliseconds 50
         }
 
         $rest = $proc.StandardOutput.ReadToEnd()
