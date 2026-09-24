@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
   IDM Toolkit - Internet Download Manager Management Utility
-  Version 3.5 | PowerShell Edition
+  Version 3.6 | PowerShell Edition
 
 .SYNOPSIS
     All-in-one management utility for Internet Download Manager.
@@ -45,7 +45,7 @@ $ErrorActionPreference = 'Stop'
 #  Constants & Paths
 # ─────────────────────────────────────────────────────────────
 
-$APP_VERSION     = '3.5'
+$APP_VERSION     = '3.6'
 $APP_TITLE       = 'IDM Toolkit'
 $IDM_DOMAIN      = 'internetdownloadmanager.com'
 $IDM_DOWNLOAD    = "https://www.$IDM_DOMAIN/download.html"
