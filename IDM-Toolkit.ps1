@@ -507,8 +507,14 @@ function Import-IDMBackup {
         $dmKey = "Registry::HKEY_USERS\$($Ctx.AccountSID)\Software\DownloadManager"
 
         function Restore-RegistryTreeData([string]$Path, $node) {
-            if (-not (Test-Path $Path)) {
-                New-Item -Path $Path -Force -EA Stop | Out-Null
+            if (-not (Test-Path -LiteralPath $Path)) {
+                $parentPath = Split-Path -Path $Path -Parent
+                $childName  = Split-Path -Path $Path -Leaf
+                try {
+                    New-Item -Path $parentPath -Name $childName -Force -EA Stop | Out-Null
+                } catch {
+                    try { New-Item -Path $Path -Force -EA SilentlyContinue | Out-Null } catch {}
+                }
             }
             if ($node.Values) {
                 $regItem = Get-Item -LiteralPath $Path -EA SilentlyContinue
@@ -523,7 +529,11 @@ function Import-IDMBackup {
                             $vk = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], $kindStr, $true)
                             $regItem.SetValue($valName, $val, $vk)
                         } else {
-                            Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kindStr -Force -EA SilentlyContinue
+                            if ([string]::IsNullOrEmpty($valName)) {
+                                Set-ItemProperty -Path $Path -Value $val -Force -EA SilentlyContinue
+                            } else {
+                                Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kindStr -Force -EA SilentlyContinue
+                            }
                         }
                     } catch {}
                 }
@@ -531,6 +541,7 @@ function Import-IDMBackup {
             if ($node.SubKeys) {
                 foreach ($subProp in $node.SubKeys.PSObject.Properties) {
                     $subName = $subProp.Name
+                    if ([string]::IsNullOrEmpty($subName)) { continue }
                     $subNode = $subProp.Value
                     $subPath = Join-Path $Path $subName
                     Restore-RegistryTreeData -Path $subPath -node $subNode
