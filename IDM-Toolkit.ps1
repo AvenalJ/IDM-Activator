@@ -436,7 +436,7 @@ function Export-IDMBackup {
 
     Out-Step '+' "Exporting IDM configuration to $TargetFile..."
 
-    $dmKey = "Registry::HKEY_USERS\$($Ctx.AccountSID)\Software\DownloadManager"
+    $dmKey = 'HKCU:\Software\DownloadManager'
     if (-not (Test-Path $dmKey)) {
         Out-Badge 'ERROR' "IDM registry key not found at $dmKey" $C.BgErr $C.Err
         return $null
@@ -504,17 +504,11 @@ function Import-IDMBackup {
             return $false
         }
 
-        $dmKey = "Registry::HKEY_USERS\$($Ctx.AccountSID)\Software\DownloadManager"
+        $dmKey = 'HKCU:\Software\DownloadManager'
 
         function Restore-RegistryTreeData([string]$Path, $node) {
             if (-not (Test-Path -LiteralPath $Path)) {
-                $parentPath = Split-Path -Path $Path -Parent
-                $childName  = Split-Path -Path $Path -Leaf
-                try {
-                    New-Item -Path $parentPath -Name $childName -Force -EA Stop | Out-Null
-                } catch {
-                    try { New-Item -Path $Path -Force -EA SilentlyContinue | Out-Null } catch {}
-                }
+                try { New-Item -Path $Path -Force -EA Stop | Out-Null } catch {}
             }
             if ($node.Values) {
                 $regItem = Get-Item -LiteralPath $Path -EA SilentlyContinue
@@ -529,11 +523,7 @@ function Import-IDMBackup {
                             $vk = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], $kindStr, $true)
                             $regItem.SetValue($valName, $val, $vk)
                         } else {
-                            if ([string]::IsNullOrEmpty($valName)) {
-                                Set-ItemProperty -Path $Path -Value $val -Force -EA SilentlyContinue
-                            } else {
-                                Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kindStr -Force -EA SilentlyContinue
-                            }
+                            Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kindStr -Force -EA SilentlyContinue
                         }
                     } catch {}
                 }
