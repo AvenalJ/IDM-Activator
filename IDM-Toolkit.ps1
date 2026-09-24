@@ -454,7 +454,9 @@ function Export-IDMBackup {
             try {
                 $vKind = $item.GetValueKind($vName).ToString()
                 $vRaw  = $item.GetValue($vName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-                $tree.Values[$vName] = @{
+                # Map empty name (registry Default value) to sentinel to avoid ConvertFrom-Json failure
+                $jsonKey = if ($vName -eq '') { '(default)' } else { $vName }
+                $tree.Values[$jsonKey] = @{
                     Kind  = $vKind
                     Value = $vRaw
                 }
@@ -511,21 +513,41 @@ function Import-IDMBackup {
                 try { New-Item -Path $Path -Force -EA Stop | Out-Null } catch {}
             }
             if ($node.Values) {
-                $regItem = Get-Item -LiteralPath $Path -EA SilentlyContinue
-                foreach ($prop in $node.Values.PSObject.Properties) {
-                    $valName = $prop.Name
-                    $valMeta = $prop.Value
-                    $kindStr = if ($valMeta.Kind) { $valMeta.Kind } else { 'String' }
-                    $val     = $valMeta.Value
+                # Convert PS drive path to .NET registry path and open with write access
+                $netPath = $Path -replace '^HKCU:\\', ''
+                $regKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($netPath, $true)
+                if ($regKey) {
+                    foreach ($prop in $node.Values.PSObject.Properties) {
+                        # Map sentinel '(default)' back to empty string for registry Default value
+                        $valName = if ($prop.Name -eq '(default)') { '' } else { $prop.Name }
+                        $valMeta = $prop.Value
+                        $kindStr = if ($valMeta.Kind) { $valMeta.Kind } else { 'String' }
+                        $val     = $valMeta.Value
 
-                    try {
-                        if ($regItem) {
+                        try {
                             $vk = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], $kindStr, $true)
-                            $regItem.SetValue($valName, $val, $vk)
-                        } else {
-                            Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kindStr -Force -EA SilentlyContinue
-                        }
-                    } catch {}
+                            # Convert JSON-deserialized types to proper .NET types for registry
+                            switch ($vk) {
+                                ([Microsoft.Win32.RegistryValueKind]::DWord) {
+                                    $val = [int]$val
+                                }
+                                ([Microsoft.Win32.RegistryValueKind]::QWord) {
+                                    $val = [long]$val
+                                }
+                                ([Microsoft.Win32.RegistryValueKind]::Binary) {
+                                    $val = [byte[]]@($val | ForEach-Object { [byte]$_ })
+                                }
+                                ([Microsoft.Win32.RegistryValueKind]::None) {
+                                    $val = [byte[]]@($val | ForEach-Object { [byte]$_ })
+                                }
+                                ([Microsoft.Win32.RegistryValueKind]::MultiString) {
+                                    $val = [string[]]@($val)
+                                }
+                            }
+                            $regKey.SetValue($valName, $val, $vk)
+                        } catch {}
+                    }
+                    $regKey.Close()
                 }
             }
             if ($node.SubKeys) {
