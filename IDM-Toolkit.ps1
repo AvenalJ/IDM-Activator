@@ -511,16 +511,21 @@ function Import-IDMBackup {
                 New-Item -Path $Path -Force -EA Stop | Out-Null
             }
             if ($node.Values) {
+                $regItem = Get-Item -LiteralPath $Path -EA SilentlyContinue
                 foreach ($prop in $node.Values.PSObject.Properties) {
                     $valName = $prop.Name
                     $valMeta = $prop.Value
-                    $kind    = if ($valMeta.Kind) { $valMeta.Kind } else { 'String' }
+                    $kindStr = if ($valMeta.Kind) { $valMeta.Kind } else { 'String' }
                     $val     = $valMeta.Value
-                    if ([string]::IsNullOrEmpty($valName)) {
-                        Set-ItemProperty -Path $Path -Name '(default)' -Value $val -Type $kind -Force -EA SilentlyContinue
-                    } else {
-                        Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kind -Force -EA SilentlyContinue
-                    }
+
+                    try {
+                        if ($regItem) {
+                            $vk = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], $kindStr, $true)
+                            $regItem.SetValue($valName, $val, $vk)
+                        } else {
+                            Set-ItemProperty -Path $Path -Name $valName -Value $val -Type $kindStr -Force -EA SilentlyContinue
+                        }
+                    } catch {}
                 }
             }
             if ($node.SubKeys) {
